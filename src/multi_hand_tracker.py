@@ -22,12 +22,12 @@ class MultiHandTracker():
         anchors_path: path to the csv containing SSD anchors
         
     Optional_Args:
-        box_enlarge: bbox will be scalled by box_enlarge
-        box_shift: bbox will be shifted downwards by box_shift
-        max_hands: The maximum number of hands to detect
-        detect_hand_thres: Threshold for hand detections
-        detect_keypoints_thres: Threshold whereby keypoints detected will be considered a hand
-        iou_thres: non-maximum suppression threshold
+        box_enlarge: bbox will be scalled by box_enlarge. Default 1.5
+        box_shift: bbox will be shifted downwards by box_shift. Default 0.2
+        max_hands: The maximum number of hands to detect. Default 2
+        detect_hand_thres: Threshold for hand detections. Default 0.7
+        detect_keypoints_thres: Threshold whereby keypoints detected will be considered a hand. Default 0.1
+        iou_thres: non-maximum suppression threshold. Default 0.45
         
     Output:
         Tuple (keypoints list, bounding box list)

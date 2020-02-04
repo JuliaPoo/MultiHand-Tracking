@@ -27,6 +27,19 @@ HAND_GRAPH = {
 flatten = lambda l: [item for sublist in l for item in sublist]
 def plot_img(img, kp_list, box_list, save=None, size=10):
     
+    r'''
+    Plots overlays for both keypoints and detection boxes
+    
+    Args:
+        img: Image that is fed into the detector
+        kp_list: Lists of keypoints, returned by detector. Input an empty list to not plot keypoints
+        box_list: Lists of detection boxes, returned by detector. Input an empty list to not plot detection boxes
+    
+    Optional Args:
+        save: File path to save the final image to. Default None.
+        size: Size of the figure. Default 10.
+    '''
+    
     plt.figure(figsize=(size,size*img.shape[0]/img.shape[1]))
     plt.xlim((0,img.shape[1]))
     plt.ylim((img.shape[0],0))
