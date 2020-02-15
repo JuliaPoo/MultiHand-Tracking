@@ -8,6 +8,8 @@ from shapely.geometry import Polygon
 #  Implement the realtime optimisation
 #  Support 3D???
 #  Make camera demo
+#  Solve the flit
+#  Do the bbox --> Mtr Mtv
 
 
 class MultiHandTracker():
@@ -33,6 +35,7 @@ class MultiHandTracker():
         Tuple (keypoints list, bounding box list)
             -- keypoints list is a list of (21,2) array each representing the coordinates of keypoints for each hand
             -- bounding box list is a list of (4,2) array each representing the bounding box for each hand
+            -- If hand instance does not exist, its entry in keypoints list and bounding box list will be empty
         
         
     Examples::
@@ -45,12 +48,12 @@ class MultiHandTracker():
                  palm_model, 
                  joint_model, 
                  anchors_path,
-                 box_enlarge=1.5, 
-                 box_shift=0.2, 
+                 box_enlarge=2.5, 
+                 box_shift=0.3, 
                  max_hands = 2,
                  detect_hand_thres = 0.7,
-                 detect_keypoints_thres = 0.1,
-                 iou_thres = 0.45
+                 detect_keypoints_thres = 0.2,
+                 iou_thres = 0.4
                  ):
         
         # BBox predictions parameters
@@ -60,6 +63,10 @@ class MultiHandTracker():
         # HandLanmarks parameters (not used for now)
         self.max_hands = max_hands
         self.is_hands_list = [False]*max_hands
+        
+        # Initialise previous frame buffers
+        self.bb_prev = [None]*max_hands
+        self.kp_prev = [None]*max_hands
         
         # Thresholds init
         self.detect_hand_thres = detect_hand_thres
@@ -141,13 +148,34 @@ class MultiHandTracker():
     @staticmethod
     def _pad1(x):
         return np.pad(x, ((0,0),(0,1)), constant_values=1, mode='constant')
-
+    
     @staticmethod
-    def _GetCandidateIdx(box_list, max_hands = 2, iou_thres = 0.45):
-        '''Perform non max suppression'''
+    def _IOU(poly1, poly2):
+        return poly1.intersection(poly2).area / poly1.union(poly2).area
+    
+    @staticmethod
+    def _predict_bbox(kp, bbox):
+        #kp_C = kp.sum(axis = 0)/len(kp)
+        kp_C = kp[9]
+        bb_C = bbox.sum(axis = 0)/len(bbox)
+        bbox_pred = bbox + (kp_C - bb_C)
+
+        # 12 is the kp for the tip of the middle finger
+        # 9 is the knuckle of the middle finger
+        # I'm not sure which is better
+        line = np.array([kp[0], kp[9]])
+        bbox_side = bbox[1] - bbox[2]
+        line_vec = line[1] - line[0]
+        cangle = np.dot(line_vec, bbox_side)/(np.linalg.norm(line_vec) * np.linalg.norm(bbox_side))
+        sangle = np.sqrt(1 - cangle*cangle)
+
+        rot = np.r_[[[cangle,-sangle],[sangle,cangle]]]
+        bbox_pred = (bbox - bb_C) @ rot + bb_C
         
-        def _IOU(poly1, poly2):
-            return poly1.intersection(poly2).area / poly1.union(poly2).area
+        return bbox_pred
+    
+    def _GetCandidateIdx(self, box_list, max_hands = 2, iou_thres = 0.45):
+        '''Perform non max suppression'''
     
         box_groups = [[(box_list[0], 0)]]
 
@@ -157,7 +185,7 @@ class MultiHandTracker():
             pbox = Polygon(box)
             new_group = True
             for group in box_groups:
-                if _IOU(pbox, Polygon(group[0][0])) > iou_thres:
+                if self._IOU(pbox, Polygon(group[0][0])) > iou_thres:
                     group.append((box, idx))
                     new_group = False
                     break
@@ -189,6 +217,7 @@ class MultiHandTracker():
                 source * scale,
                 self._target_triangle
                 )
+        
         Mtr_temp = self._pad1(Mtr.T).T
         Mtr_temp[2,:2] = 0
         Minv = np.linalg.inv(Mtr_temp)
@@ -196,7 +225,74 @@ class MultiHandTracker():
         box_orig = (self._target_box @ Minv.T)[:,:2]
         box_orig -= pad[::-1]
         
-        return box_orig, source, Mtr, Minv
+        return box_orig, Mtr, Minv
+    
+    def _bbox_to_source(self, bbox, pad):
+        
+        '''
+        Obtain the transformation matrix and its inverse from bbox to source
+        '''
+        
+        src_tri = np.array(bbox[:3] + pad[::-1], dtype=np.float32)
+        dst_tri = self._target_box[:3,:2].copy(order='C')
+        Mtr = cv2.getAffineTransform(src_tri, dst_tri)
+
+        Mtr_temp = self._pad1(Mtr.T).T
+        Mtr_temp[2,:2] = 0
+        Minv = np.linalg.inv(Mtr_temp)
+        
+        return Mtr, Minv
+    
+    def _get_bbox_Mtr_Minv(self, img, img_norm):
+        source_list = self.detect_hand(img_norm)
+        if len(source_list) == 0:
+            return [], []
+
+        scale = max(img.shape) / 256
+        bbox_Mtr_Minv_list = [self._source_to_bbox(scale, self.pad, source) for source in source_list]
+        box_orig_list = [ele[0] for ele in bbox_Mtr_Minv_list]
+
+        box_valid_idx = self._GetCandidateIdx(box_orig_list, max_hands = self.max_hands, iou_thres = self.iou_thres)
+        box_orig_list = [box_orig_list[i] for i in box_valid_idx]
+        Mtr_Minv_list = [bbox_Mtr_Minv_list[i][1:] for i in box_valid_idx]
+
+        box_orig_list += [None] * (self.max_hands - len(box_orig_list))
+        Mtr_Minv_list += [(None, None)] * (self.max_hands - len(Mtr_Minv_list))
+        
+        return box_orig_list, Mtr_Minv_list
+    
+    def _merge_bbox_predicts(self, bbox_list, bbox_params):
+        '''
+        Primitive instance tracking
+        Not part of the mediapipe pipeline
+        '''
+        
+        prev_poly = [Polygon(box) for box in self.bb_prev]
+        curr_poly = [Polygon(box) for box in bbox_list]
+        
+        rearranged_box = [None]*self.max_hands
+        rearranged_params = [None]*self.max_hands
+        leftover = curr_poly[:]
+        for idx1, ppoly in enumerate(prev_poly):
+            for idx2, cpoly in enumerate(curr_poly):
+                if cpoly in leftover: continue
+                if self._IOU(ppoly, cpoly) > self.iou_thres:
+                    rearranged_box[idx1] = self.bb_prev[idx2]
+                    rearranged_params[idx1] = tuple(_bbox_to_source(bbox, self.pad))
+                    leftover[idx2] = None
+                    break
+        
+        leftover = [i for i in leftover if type(i) != type(None)]
+        
+        for idx1, cpoly in enumerate(leftover):
+            for idx2 in range(len(rearranged_box)):
+                if type(rearranged_box[idx2]) == type(None):
+                    rearranged_box[idx2] = bbox_list[idx1]
+                    rearranged_params[idx2] = bbox_params[idx1]
+                    break
+        
+        return rearranged_box, rearranged_params
+        
     
     def predict_joints(self, img_norm, hand_thres = 0.):
         '''Returns the joints output and if a hand is present in img_norm'''
@@ -274,36 +370,58 @@ class MultiHandTracker():
         return img_pad, img_norm, pad
 
 
-    def __call__(self, img, get_kp = True):
+    def __call__(self, img, get_kp = True, independent = False):
+        
+        '''
+        img is the image to be processed (np.array)
+        if get_kp is False, only the bounding box is returned. Keypoints will return an empty list
+        if independent is True, each frame will be processed independently. Else the bounding box will depend on the previous frame
+        '''
+        
+        # Process image
         img_pad, img_norm, pad = self.preprocess_img(img)
+        self.pad = pad
         
-        source_list = self.detect_hand(img_norm)
-        if len(source_list) == 0:
-            return [], []
+        # Checks whether to recompute palm detection or use previous frame's bounding box
+        if len([1 for i in self.bb_prev if type(i) == type(None)]) > 0:
+            box_orig_list, Mtr_Minv_list = self._get_bbox_Mtr_Minv(img, img_norm)
+            box_orig_list, Mtr_Minv_list = self._merge_bbox_predicts(box_orig_list, Mtr_Minv_list)
+            
+            if not get_kp: return [], box_orig_list
+        else:
+            box_orig_list = [self._predict_bbox(kp, bbox) for kp, bbox in zip(self.kp_prev, self.bb_prev)]
+            Mtr_Minv_list = [self._bbox_to_source(bbox, pad) for bbox in box_orig_list]
         
-        scale = max(img.shape) / 256
-        bbox_source_Mtr_Minv_list = [self._source_to_bbox(scale, pad, source) for source in source_list]
-        box_orig_list = [ele[0] for ele in bbox_source_Mtr_Minv_list]
         
-        box_valid_idx = self._GetCandidateIdx(box_orig_list, max_hands = self.max_hands, iou_thres = self.iou_thres)
-        box_orig_list = [box_orig_list[i] for i in box_valid_idx]
-        bbox_source_Mtr_Minv_list = [bbox_source_Mtr_Minv_list[i] for i in box_valid_idx]
-        
-        if not get_kp: return [], box_orig_list
-        
+        # Initialise buffers
+        is_hands_list_prev = self.is_hands_list
         kp_orig_list = []
         self.is_hands_list = []
         index = 0
-        for bbox, source, Mtr, Minv in bbox_source_Mtr_Minv_list:
+            
+        kp_orig_list = []
+        
+        # Iterate across all palm detections
+        for Mtr, Minv in Mtr_Minv_list:
+            
+            # Check if palm instance exist
+            if type(Mtr) == type(None):
+                self.is_hands_list.append(False)
+                kp_orig_list.append(None)
+                continue
 
+            # Crop image according to bounding box
             img_landmark = cv2.warpAffine(
                 self._im_normalize(img_pad), Mtr, (256,256)
             )
-
             
+            # Get hand keypoints. is_hand is to detect if hand is present within bounding box
             joints, is_hand = self.predict_joints(img_landmark, hand_thres = self.detect_keypoints_thres)
             if not is_hand:
-                box_orig_list.pop(index)
+                self.is_hands_list.append(False)
+                box_orig_list[index] = None
+                kp_orig_list.append(None)
+                is_recall = True
                 continue
 
             # projecting keypoints back into original image coordinate space
@@ -314,5 +432,14 @@ class MultiHandTracker():
             self.is_hands_list.append(is_hand)
             
             index += 1
+        
+        # Store previous frame bbox and kp
+        if not independent:
+            self.bb_prev = box_orig_list
+            self.kp_prev = kp_orig_list
+        
+        # Recall if is_hands has changed (The number of palm instances decreased)
+        if (len([1 for i,j in zip(is_hands_list_prev, self.is_hands_list) if (i==True and j==False)]) != 0):
+            return self.__call__(img, get_kp = get_kp)
         
         return kp_orig_list, box_orig_list

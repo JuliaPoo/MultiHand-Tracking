@@ -107,6 +107,6 @@ def main(filename):
 if __name__ == "__main__":
     
     print ("    Input filename or url of video to process")
-    print ("    E.g. https://www.signingsavvy.com/media/mp4-hd/6/6507.mp4")
+    print ("    E.g. https://www.signingsavvy.com/media/mp4-hd/6/6990.mp4")
     filename = input(">>>>> filename/url: ")
     main(filename)
