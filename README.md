@@ -39,6 +39,12 @@ shapely
 ```
 To use the plotting functions you would need `matplotlib`
 
+## Results
+
+<img src="https://github.com/JuliaPoo/MultiHand-Tracking/blob/master/test2.gif" alt="Process video result" width="400">
+
+Video from [Signing Savvy](https://www.signingsavvy.com/sign/HAVE%20A%20GOOD%20DAY/8194/1)
+
 ## Acknowledgments
 
 This work is a study of models developed by Google and distributed as a part of the [Mediapipe](https://github.com/google/mediapipe) framework.   
