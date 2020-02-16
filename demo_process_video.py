@@ -37,7 +37,7 @@ def GetImageList(filename, crop=1):
 def Process_Img_List(img_idx_list, thread_idx):
     
     detector = mht.MultiHandTracker(palm_model_path, landmark_model_path, anchors_path,
-                                   box_shift=0.2, box_enlarge=1.3)
+                                   box_shift=0.3, box_enlarge=1.5)
     
     L = len(img_idx_list)
     for c, i in enumerate(img_idx_list):
@@ -57,7 +57,7 @@ def main(filename):
     
     # Initialise images
     global img_list, ALL_KP, ALL_BB
-    img_list, fps = GetImageList(filename, crop=0.6)
+    img_list, fps = GetImageList(filename, crop=0.8)
     L = len(img_list)
     ALL_KP = [None]*L
     ALL_BB = [None]*L

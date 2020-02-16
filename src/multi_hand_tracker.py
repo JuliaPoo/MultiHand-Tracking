@@ -48,12 +48,12 @@ class MultiHandTracker():
                  palm_model, 
                  joint_model, 
                  anchors_path,
-                 box_enlarge=2.5, 
-                 box_shift=0.3, 
+                 box_enlarge = 1.5, 
+                 box_shift = 0.3, 
                  max_hands = 2,
                  detect_hand_thres = 0.7,
                  detect_keypoints_thres = 0.2,
-                 iou_thres = 0.4
+                 iou_thres = 0.6
                  ):
         
         # BBox predictions parameters
