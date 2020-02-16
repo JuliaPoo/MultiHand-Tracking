@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import tensorflow as tf
 from shapely.geometry import Polygon
+from scipy.spatial.distance import pdist, squareform
 
 # TODO: 
 #  Implement the realtime optimisation
@@ -48,8 +49,8 @@ class MultiHandTracker():
                  palm_model, 
                  joint_model, 
                  anchors_path,
-                 box_enlarge = 1.6, 
-                 box_shift = 0.35, 
+                 box_enlarge = 1.5, 
+                 box_shift = 0.4, 
                  max_hands = 2,
                  detect_hand_thres = 0.7,
                  detect_keypoints_thres = 0.2,
@@ -154,7 +155,15 @@ class MultiHandTracker():
         return poly1.intersection(poly2).area / poly1.union(poly2).area
     
     @staticmethod
-    def _predict_bbox(kp, bbox):
+    def _max_dist(points):
+        '''Find maximum distance between 2 points in a set of points'''
+        D = pdist(points)
+        D = squareform(D);
+        return np.nanmax(D)
+    
+    def _predict_bbox(self, kp, bbox):
+        '''Predicts bbox from previous keypoints and bbox'''
+        
         #kp_C = kp.sum(axis = 0)/len(kp)
         kp_C = kp[9]
         bb_C = bbox.sum(axis = 0)/len(bbox)
@@ -169,8 +178,9 @@ class MultiHandTracker():
         cangle = np.dot(line_vec, bbox_side)/(np.linalg.norm(line_vec) * np.linalg.norm(bbox_side))
         sangle = np.sqrt(1 - cangle*cangle)
 
+        scale = self.box_enlarge * self._max_dist(kp)/np.linalg.norm(bbox_side)
         rot = np.r_[[[cangle,-sangle],[sangle,cangle]]]
-        bbox_pred = (bbox - bb_C) @ rot + bb_C
+        bbox_pred = (bbox - bb_C) @ rot * scale + bb_C
         
         return bbox_pred
     
