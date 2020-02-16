@@ -43,7 +43,7 @@ To use the plotting functions you would need `matplotlib`
 
 <img src="https://github.com/JuliaPoo/MultiHand-Tracking/blob/master/test2.gif" alt="Process video result" width="400">
 
-Video from [Signing Savvy](https://www.signingsavvy.com/sign/HAVE%20A%20GOOD%20DAY/8194/1)
+Video from [Signing Savvy](https://www.signingsavvy.com/sign/HAVE%20A%20GOOD%20DAY/8194/1). Not very good when the hands occlude each other.
 
 ## Acknowledgments
 
