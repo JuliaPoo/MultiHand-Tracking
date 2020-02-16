@@ -31,6 +31,7 @@ class MultiHandTracker():
         detect_hand_thres: Threshold for hand detections. Default 0.7
         detect_keypoints_thres: Threshold whereby keypoints detected will be considered a hand. Default 0.1
         iou_thres: non-maximum suppression threshold. Default 0.45
+        independent: If True, each image will be processed independent of the previous frame
         
     Output:
         Tuple (keypoints list, bounding box list)
@@ -54,8 +55,12 @@ class MultiHandTracker():
                  max_hands = 2,
                  detect_hand_thres = 0.7,
                  detect_keypoints_thres = 0.2,
-                 iou_thres = 0.6
+                 iou_thres = 0.6,
+                 independent = False
                  ):
+        
+        # Flags
+        self.independent = independent
         
         # BBox predictions parameters
         self.box_shift = box_shift
@@ -380,12 +385,11 @@ class MultiHandTracker():
         return img_pad, img_norm, pad
 
 
-    def __call__(self, img, get_kp = True, independent = False):
+    def __call__(self, img, get_kp = True):
         
         '''
         img is the image to be processed (np.array)
         if get_kp is False, only the bounding box is returned. Keypoints will return an empty list
-        if independent is True, each frame will be processed independently. Else the bounding box will depend on the previous frame
         '''
         
         # Process image
@@ -444,7 +448,7 @@ class MultiHandTracker():
             index += 1
         
         # Store previous frame bbox and kp
-        if not independent:
+        if not self.independent:
             self.bb_prev = box_orig_list
             self.kp_prev = kp_orig_list
         
