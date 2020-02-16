@@ -36,6 +36,7 @@ numpy
 opencv
 tensorflow
 shapely
+scipy
 ```
 To use the plotting functions you would need `matplotlib`
 
