@@ -36,8 +36,7 @@ def GetImageList(filename, crop=1):
 
 def Process_Img_List(img_idx_list, thread_idx):
     
-    detector = mht.MultiHandTracker(palm_model_path, landmark_model_path, anchors_path,
-                                   box_shift=0.3, box_enlarge=1.5)
+    detector = mht.MultiHandTracker(palm_model_path, landmark_model_path, anchors_path)
     
     L = len(img_idx_list)
     for c, i in enumerate(img_idx_list):
