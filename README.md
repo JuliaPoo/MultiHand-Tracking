@@ -1,4 +1,4 @@
-# Multi Hand Tracker
+# Multi Hand Tracker on Python
 
 Python wrapper for Google's [Mediapipe Multi-Hand Tracking](https://github.com/google/mediapipe/blob/master/mediapipe/docs/multi_hand_tracking_mobile_gpu.md) pipeline. I've added primitive hand instance tracking. It is not reliable and in actual usage it should be supplemented with other information.
 
@@ -36,6 +36,7 @@ numpy
 opencv
 tensorflow
 shapely
+scipy
 ```
 To use the plotting functions you would need `matplotlib`
 
