@@ -98,7 +98,7 @@ def main(filename):
 
     gif_save = images_save[0] 
     gif_save.info['duration'] = 1./fps
-    gif_save.save('test2.gif', save_all=True, append_images=images_save[1:], loop=0)
+    gif_save.save('DEMO.gif', save_all=True, append_images=images_save[1:], loop=0)
 
     shutil.rmtree(TEMP_FOLDER)
     print ("[+] Done!")
