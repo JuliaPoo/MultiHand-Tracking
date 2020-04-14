@@ -55,7 +55,7 @@ detector = mht.MultiHandTracker3D(palm_model_path, landmark_model_path, anchors_
 kp_list, box_list = detector(img)
 
 # Determine handedness of each prediction
-is_right = [is_right_hand(kp) for kp in kp_list]
+is_right = [mht.is_right_hand(kp) for kp in kp_list]
 
 # Plot predictions
 plot_hand.plot_img(img, kp_list, box_list, is_right=is_right)
