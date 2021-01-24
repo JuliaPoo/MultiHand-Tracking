@@ -1,3 +1,6 @@
+# IMPORTANT
+This project is no longer being maintained as Mediapipe has since added [Python bindings](https://google.github.io/mediapipe/getting_started/python_framework.html) and [handedness detection](https://github.com/google/mediapipe/releases/tag/v0.7.5) which works faster and better than the hacks used here. Furthermore, Mediapipe has since [improved their handtracking models](https://github.com/google/mediapipe/releases/tag/0.8.0). This project will remain in it's current state as a study of models from Mediapipe.
+
 # Multi Hand Tracker on Python
 
 Python wrapper for Google's [Mediapipe Multi-Hand Tracking](https://github.com/google/mediapipe/blob/master/mediapipe/docs/multi_hand_tracking_mobile_gpu.md) pipeline. There are 2 predictor classes available. ```MultiHandTracker``` which predicts 2D keypoints and ```MultiHandTracker3D``` which predicts 3D keypoints. Keypoints generated from ```MultiHandTracker3D``` can be fed into ```is_right_hand``` to determine handedness (distinguish between right and left hand). ```is_right_hand``` is not part of Mediapipe's pipeline but I thought it'll be useful.
